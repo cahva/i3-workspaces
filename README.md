@@ -92,7 +92,7 @@ Set in the widget's entry in `shell.json`:
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `maxWorkspaceId` | `10` | Highest slot shown from the monitor's own block (1-10). Slot 10 renders as `0`, matching the `Super+0` keybind. Guest workspaces always show. |
+| `maxWorkspaceId` | `10` | Highest slot shown from the monitor's own block (1-10). Slot 10 renders as `0`, matching the `Super+0` keybind. The active workspace and guest workspaces always show. |
 
 ## How the per-monitor filtering works
 

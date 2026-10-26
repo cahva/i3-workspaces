@@ -107,7 +107,7 @@ BarWidget {
     var lines = String(text || "").split("\n")
     for (var i = 0; i < lines.length; i++) {
       var fields = lines[i].split("\t")
-      if (fields.length >= 3 && fields[1] !== "") next[fields[1]] = parseInt(fields[0], 10)
+      if (fields.length >= 3 && fields[1] !== "" && /^\d+$/.test(fields[0])) next[fields[1]] = parseInt(fields[0], 10)
     }
     root.blocks = next
   }
@@ -153,31 +153,29 @@ BarWidget {
       var id = workspace.id
       if (id <= 0) continue
 
-      if (mine !== "") {
-        var owner = root.monitorNameOf(workspace)
+      var owner = mine !== "" ? root.monitorNameOf(workspace) : ""
+      if (root.blockOf(id) === root.block) {
         // An unknown owner is kept rather than dropped: better a stray box
         // than a workspace that silently vanishes from every bar.
         if (owner !== "" && owner !== mine) continue
+        if (root.slotOf(id) > root.maxWorkspaceId) continue
+        if (ids.indexOf(id) === -1) ids.push(id)
+      } else if (owner !== "" && owner === mine) {
+        // A guest only shows on the bar of the monitor it is known to be on.
+        if (guests.indexOf(id) === -1) guests.push(id)
       }
-
-      root.addWorkspaceId(id, ids, guests)
     }
 
-    if (root.activeId > 0) root.addWorkspaceId(root.activeId, ids, guests)
+    // The active workspace shows even past maxWorkspaceId.
+    var active = root.activeId
+    if (active > 0 && ids.indexOf(active) === -1 && guests.indexOf(active) === -1) {
+      if (root.blockOf(active) === root.block) ids.push(active)
+      else guests.push(active)
+    }
 
     ids.sort(function(left, right) { return left - right })
     guests.sort(function(left, right) { return left - right })
     return ids.concat(guests)
-  }
-
-  // maxWorkspaceId limits the monitor's own slots; guests always show, or the
-  // bar would hide a workspace that has nowhere else to appear.
-  function addWorkspaceId(id, ids, guests) {
-    if (root.blockOf(id) !== root.block) {
-      if (guests.indexOf(id) === -1) guests.push(id)
-    } else if (root.slotOf(id) <= root.maxWorkspaceId && ids.indexOf(id) === -1) {
-      ids.push(id)
-    }
   }
 
   function focusWorkspace(id) {
