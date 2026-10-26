@@ -67,6 +67,13 @@ never show up on a bar that isn't theirs -- each monitor only lists the
 workspaces Hyprland has assigned to it, plus whichever workspace is currently
 active there (so the bar never renders empty).
 
+Omarchy gives every monitor its own block of ten Hyprland workspace ids
+(1-10 on the laptop panel, 11-20 on the next monitor, and so on), and `Super+N`
+goes to slot N on the focused monitor. Each bar labels its workspaces by that
+slot, so the second monitor's 11-20 read 1-0. When a monitor is unplugged and
+its workspaces find no free slot on the one they move to, they stay guests and
+are listed after a gap, labelled by their slot on the monitor they came from.
+
 The active workspace on each monitor gets a solid accent pill regardless of
 which monitor currently holds keyboard focus -- i.e. jumping your focus to a
 second monitor doesn't gray out the workspace you left behind on the first
@@ -85,7 +92,7 @@ Set in the widget's entry in `shell.json`:
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `maxWorkspaceId` | `10` | Highest workspace number shown. Workspace 10 always renders as `0`, matching Hyprland's default keybinds. |
+| `maxWorkspaceId` | `10` | Highest slot shown from the monitor's own block (1-10). Slot 10 renders as `0`, matching the `Super+0` keybind. The active workspace and guest workspaces always show. |
 
 ## How the per-monitor filtering works
 
