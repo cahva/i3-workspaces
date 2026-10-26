@@ -87,6 +87,12 @@ BarWidget {
     return ""
   }
 
+  // Omarchy gives each monitor a block of ten global ids (1-10, 11-20, ...);
+  // the slot is the number Super+N uses within the block.
+  function slotOf(id) {
+    return (id - 1) % 10 + 1
+  }
+
   function workspaceById(id) {
     var values = Hyprland.workspaces.values
     for (var i = 0; i < values.length; i++) {
@@ -106,7 +112,7 @@ BarWidget {
     for (var i = 0; i < values.length; i++) {
       var workspace = values[i]
       var id = workspace.id
-      if (id <= 0 || id > root.maxWorkspaceId) continue
+      if (id <= 0 || root.slotOf(id) > root.maxWorkspaceId) continue
 
       if (mine !== "") {
         var owner = root.monitorNameOf(workspace)
@@ -118,7 +124,7 @@ BarWidget {
       if (ids.indexOf(id) === -1) ids.push(id)
     }
 
-    if (root.activeId > 0 && root.activeId <= root.maxWorkspaceId && ids.indexOf(root.activeId) === -1) ids.push(root.activeId)
+    if (root.activeId > 0 && root.slotOf(root.activeId) <= root.maxWorkspaceId && ids.indexOf(root.activeId) === -1) ids.push(root.activeId)
 
     ids.sort(function(left, right) { return left - right })
     return ids
@@ -179,7 +185,7 @@ BarWidget {
         Text {
           id: label
           anchors.centerIn: parent
-          text: String(box.modelData)
+          text: String(root.slotOf(box.modelData) % 10)
           color: (box.active || box.urgent) ? root.bgColor : root.inactiveColor
           font.bold: box.active || box.urgent
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
