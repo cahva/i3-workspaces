@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
@@ -88,9 +89,45 @@ BarWidget {
   }
 
   // Omarchy gives each monitor a block of ten global ids (1-10, 11-20, ...);
-  // the slot is the number Super+N uses within the block.
+  // the slot is the number Super+N uses within the block. See
+  // default/hypr/monitor-workspaces.lua.
+  function blockOf(id) {
+    return Math.floor((id - 1) / 10)
+  }
+
   function slotOf(id) {
     return (id - 1) % 10 + 1
+  }
+
+  // Connector -> block, from the state file Omarchy keeps them in.
+  property var blocks: ({})
+
+  function readBlocks(text) {
+    var next = {}
+    var lines = String(text || "").split("\n")
+    for (var i = 0; i < lines.length; i++) {
+      var fields = lines[i].split("\t")
+      if (fields.length >= 3 && fields[1] !== "") next[fields[1]] = parseInt(fields[0], 10)
+    }
+    root.blocks = next
+  }
+
+  FileView {
+    path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy/monitor-workspaces"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.readBlocks(text())
+    onLoadFailed: root.readBlocks("")
+  }
+
+  // Until Omarchy has written the file, the workspace this monitor shows is in
+  // its own block.
+  readonly property int block: {
+    var _ = root.revision
+    var own = root.blocks[root.screenName()]
+    if (own !== undefined) return own
+    return root.activeId > 0 ? root.blockOf(root.activeId) : 0
   }
 
   function workspaceById(id) {
@@ -101,18 +138,20 @@ BarWidget {
     return null
   }
 
-  // Workspace ids belonging to this monitor, always including the active id
-  // so the bar never renders empty.
+  // This monitor's own workspace ids, then guests: workspaces of an unplugged
+  // monitor that found no free slot in this one's block. Always includes the
+  // active id so the bar never renders empty.
   readonly property var workspaceIds: {
     var _ = root.revision
     var mine = root.screenName()
     var ids = []
+    var guests = []
     var values = Hyprland.workspaces.values
 
     for (var i = 0; i < values.length; i++) {
       var workspace = values[i]
       var id = workspace.id
-      if (id <= 0 || root.slotOf(id) > root.maxWorkspaceId) continue
+      if (id <= 0) continue
 
       if (mine !== "") {
         var owner = root.monitorNameOf(workspace)
@@ -121,13 +160,24 @@ BarWidget {
         if (owner !== "" && owner !== mine) continue
       }
 
-      if (ids.indexOf(id) === -1) ids.push(id)
+      root.addWorkspaceId(id, ids, guests)
     }
 
-    if (root.activeId > 0 && root.slotOf(root.activeId) <= root.maxWorkspaceId && ids.indexOf(root.activeId) === -1) ids.push(root.activeId)
+    if (root.activeId > 0) root.addWorkspaceId(root.activeId, ids, guests)
 
     ids.sort(function(left, right) { return left - right })
-    return ids
+    guests.sort(function(left, right) { return left - right })
+    return ids.concat(guests)
+  }
+
+  // maxWorkspaceId limits the monitor's own slots; guests always show, or the
+  // bar would hide a workspace that has nowhere else to appear.
+  function addWorkspaceId(id, ids, guests) {
+    if (root.blockOf(id) !== root.block) {
+      if (guests.indexOf(id) === -1) guests.push(id)
+    } else if (root.slotOf(id) <= root.maxWorkspaceId && ids.indexOf(id) === -1) {
+      ids.push(id)
+    }
   }
 
   function focusWorkspace(id) {
@@ -152,6 +202,7 @@ BarWidget {
       Item {
         id: box
         required property int modelData
+        required property int index
 
         readonly property var workspace: {
           var _ = root.revision
@@ -162,6 +213,11 @@ BarWidget {
           var _ = root.revision
           return box.workspace !== null && box.workspace.urgent === true
         }
+
+        // A gap sets visiting workspaces apart from the monitor's own.
+        readonly property bool firstGuest: root.blockOf(box.modelData) !== root.block && box.index > 0 && root.blockOf(root.workspaceIds[box.index - 1]) === root.block
+        Layout.leftMargin: box.firstGuest && !root.vertical ? Style.space(6) : 0
+        Layout.topMargin: box.firstGuest && root.vertical ? Style.space(6) : 0
 
         Layout.alignment: Qt.AlignVCenter
         Layout.fillHeight: true
